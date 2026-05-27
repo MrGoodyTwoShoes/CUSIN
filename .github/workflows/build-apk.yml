@@ -31,6 +31,13 @@ jobs:
       working-directory: ./mobile
       run: flutter pub get
 
+    - name: Create assets directories
+      working-directory: ./mobile
+      run: |
+        mkdir -p assets/images
+        mkdir -p assets/icons
+        mkdir -p assets/fonts
+
     - name: Build APK
       working-directory: ./mobile
       run: flutter build apk --release
@@ -41,3 +48,4 @@ jobs:
         name: cusin-apk
         path: mobile/build/app/outputs/flutter-apk/app-release.apk
         retention-days: 30
+      if: success()
