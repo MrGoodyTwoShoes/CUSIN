@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
+const { routeQueryRateLimit, generalRateLimit, locationQueryRateLimit } = require('../middleware/rateLimit');
 const routeService = require('../services/routeService');
 const logger = require('../config/logger');
 
@@ -36,7 +37,7 @@ router.post('/safe', authenticateToken, generalRateLimit, routeQueryRateLimit, a
   }
 });
 
-// Get area risk summary
+// Get area risk summarygeneralRateLimit, locationQueryRateLimit, 
 router.get('/area-risk', authenticateToken, async (req, res) => {
   try {
     const { lat, lng, radius } = req.query;
