@@ -96,6 +96,9 @@ server.listen(PORT, () => {
   logger.info(`CUSIN Backend Server running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`WebSocket server initialized on ws://localhost:${PORT}/ws`);
+}).on('error', (error) => {
+  logger.error('Server failed to start:', error);
+  process.exit(1);
 });
 
 module.exports = { app, server, wss };
