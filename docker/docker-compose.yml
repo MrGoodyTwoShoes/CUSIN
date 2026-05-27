@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # PostgreSQL with PostGIS
+  postgres:
+    image: postgis/postgis:15-3.3
+    container_name: cusin-postgres
+    environment:
+      POSTGRES_DB: cusin
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: cusin-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile.backend
+    container_name: cusin-backend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: cusin
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: your_jwt_secret_change_in_production
+      JWT_EXPIRES_IN: 7d
+      H3_RESOLUTION: 9
+      LOCATION_FUZZ_RADIUS: 75
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../backend:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # Admin Dashboard
+  admin:
+    build:
+      context: ../admin-web
+      dockerfile: ../docker/Dockerfile.admin
+    container_name: cusin-admin
+    ports:
+      - "3001:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3000/api/v1
+    depends_on:
+      - backend
+    volumes:
+      - ../admin-web:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+
+volumes:
+  postgres_data:
+  redis_data:
