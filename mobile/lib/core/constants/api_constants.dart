@@ -2,7 +2,7 @@ class ApiConstants {
   // Base URL
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:3000/api/v1',
+    defaultValue: 'https://cusin.onrender.com/api/v1',
   );
   
   // Endpoints

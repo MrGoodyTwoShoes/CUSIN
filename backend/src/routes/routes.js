@@ -37,8 +37,8 @@ router.post('/safe', authenticateToken, generalRateLimit, routeQueryRateLimit, a
   }
 });
 
-// Get area risk summarygeneralRateLimit, locationQueryRateLimit, 
-router.get('/area-risk', authenticateToken, async (req, res) => {
+// Get area risk summary
+router.get('/area-risk', authenticateToken, generalRateLimit, locationQueryRateLimit, async (req, res) => {
   try {
     const { lat, lng, radius } = req.query;
 
