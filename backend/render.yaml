@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: cusin-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/server.js
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+      - key: DB_HOST
+        value: fgbvwbpmsqntejwjsdtl.supabase.co
+      - key: DB_PORT
+        value: 5432
+      - key: DB_NAME
+        value: postgres
+      - key: DB_USER
+        value: postgres
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSL
+        value: true
+      - key: SUPABASE_URL
+        value: https://fgbvwbpmsqntejwjsdtl.supabase.co
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: LOCATION_FUZZ_RADIUS
+        value: 250
+      - key: LOCATION_FUZZ_MIN
+        value: 200
+      - key: LOCATION_FUZZ_MAX
+        value: 300
