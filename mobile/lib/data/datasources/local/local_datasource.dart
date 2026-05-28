@@ -5,6 +5,14 @@ import '../../../core/error/exceptions.dart';
 abstract class LocalDataSource {
   Future<void> init();
   Future<void> close();
+  Future<Box> getBox(String boxName);
+  Future<T?> get<T>(String boxName, String key);
+  Future<void> put(String boxName, String key, dynamic value);
+  Future<void> delete(String boxName, String key);
+  Future<List<dynamic>> getAll(String boxName);
+  Future<void> clear(String boxName);
+  Future<bool> containsKey(String boxName, String key);
+  Future<int> getLength(String boxName);
 }
 
 /// Local datasource implementation using Hive
