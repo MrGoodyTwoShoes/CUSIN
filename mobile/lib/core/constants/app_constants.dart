@@ -3,12 +3,11 @@ class AppConstants {
   static const String appName = 'CUSIN';
   static const String appVersion = '1.0.0';
   
-  // Mapbox
-  static const String mapboxAccessToken = String.fromEnvironment(
-    'MAPBOX_ACCESS_TOKEN',
-    defaultValue: 'YOUR_MAPBOX_ACCESS_TOKEN',
+  // Google Maps
+  static const String googleMapsApiKey = String.fromEnvironment(
+    'GOOGLE_MAPS_API_KEY',
+    defaultValue: 'YOUR_GOOGLE_MAPS_API_KEY',
   );
-  static const String mapboxStyleUrl = 'mapbox://styles/mapbox/streets-v12';
   static const double defaultMapZoom = 13.0;
   static const double minMapZoom = 10.0;
   static const double maxMapZoom = 18.0;

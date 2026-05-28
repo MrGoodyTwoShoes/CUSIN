@@ -41,7 +41,7 @@ class _PhoneVerificationScreenState extends ConsumerState<PhoneVerificationScree
     }
     
     if (mounted) {
-      context.go('/auth/otp', queryParameters: {'phone': _phoneController.text});
+      context.go('/auth/otp?phone=${_phoneController.text}');
     }
   }
   

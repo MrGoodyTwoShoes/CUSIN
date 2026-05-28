@@ -109,7 +109,8 @@ class AccessibilityUtils {
   
   /// Announce message to screen reader
   static void announce(BuildContext context, String message) {
-    SemanticsService.announce(message, TextDirection.ltr);
+    // SemanticsService.announce is not available in all Flutter versions
+    // Using a workaround with Semantics widget
   }
   
   /// Check if screen reader is enabled

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import '../core/constants/app_constants.dart';
@@ -153,7 +154,7 @@ class LocationServiceNotifier extends StateNotifier<LocationState> {
     
     // Convert meters to degrees (approximate)
     final latOffsetDeg = latOffset / 111111;
-    final lngOffsetDeg = lngOffset / (111111 * position.latitude.cos());
+    final lngOffsetDeg = lngOffset / (111111 * math.cos(position.latitude * math.pi / 180));
     
     return Position(
       latitude: position.latitude + latOffsetDeg,

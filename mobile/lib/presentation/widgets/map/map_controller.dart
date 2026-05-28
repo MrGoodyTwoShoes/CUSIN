@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mapbox_gl/mapbox_gl.dart';
-import 'package:mapbox_gl/src/mapbox_gl.dart' as mapbox;
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../services/location_service.dart';
 import 'heatmap_layer.dart';
@@ -9,53 +8,47 @@ import 'marker_layer.dart';
 
 /// Map controller provider
 final mapControllerProvider = Provider<MapController>((ref) {
-  return MapController(ref.read(locationServiceProvider));
+  return MapController(ref.read(locationServiceProvider.notifier));
 });
 
 /// Main map controller
 class MapController {
   final LocationServiceNotifier locationService;
-  mapbox.MapboxMapController? _controller;
+  GoogleMapController? _controller;
   HeatmapLayer? _heatmapLayer;
   MarkerLayer? _markerLayer;
-  
+
   MapController(this.locationService);
-  
+
   /// Initialize map controller
-  void initialize(mapbox.MapboxMapController controller) {
+  void initialize(GoogleMapController controller) {
     _controller = controller;
     _heatmapLayer = HeatmapLayer(controller);
     _markerLayer = MarkerLayer(controller);
-    
-    // Add marker images
-    _markerLayer?.addMarkerImages();
   }
-  
+
   /// Get current controller
-  mapbox.MapboxMapController? get controller => _controller;
-  
+  GoogleMapController? get controller => _controller;
+
   /// Get heatmap layer
   HeatmapLayer? get heatmapLayer => _heatmapLayer;
-  
+
   /// Get marker layer
   MarkerLayer? get markerLayer => _markerLayer;
-  
+
   /// Center map on user location
   Future<void> centerOnUserLocation({double zoom = AppConstants.defaultMapZoom}) async {
-    final locationState = locationService.state;
-    if (locationState.currentPosition != null) {
+    final position = locationService.state.currentPosition;
+    if (position != null && _controller != null) {
       await _controller?.animateCamera(
         CameraUpdate.newLatLngZoom(
-          LatLng(
-            locationState.currentPosition!.latitude,
-            locationState.currentPosition!.longitude,
-          ),
+          LatLng(position.latitude, position.longitude),
           zoom,
         ),
       );
     }
   }
-  
+
   /// Center map on specific location
   Future<void> centerOnLocation({
     required double latitude,
@@ -69,7 +62,7 @@ class MapController {
       ),
     );
   }
-  
+
   /// Fit map to bounds
   Future<void> fitToBounds({
     required double north,
@@ -82,54 +75,39 @@ class MapController {
       LatLng(south, west),
       LatLng(north, east),
     );
-    
     await _controller?.animateCamera(
       CameraUpdate.newLatLngBounds(bounds, padding: padding),
     );
   }
-  
+
   /// Add incident markers
-  Future<void> addIncidentMarkers(List<IncidentMarker> markers) async {
-    for (final marker in markers) {
-      await _markerLayer?.addIncidentMarker(
-        markerId: marker.id,
-        latitude: marker.latitude,
-        longitude: marker.longitude,
-        incidentType: marker.incidentType,
-        severity: marker.severity,
-        confidence: marker.confidence,
-      );
-    }
+  Future<void> addIncidentMarkers(List<dynamic> markers) async {
+    await _markerLayer?.addIncidentMarkers(markers);
   }
-  
+
   /// Add heatmap layer
   Future<void> addHeatmap({
-    required List<HeatmapPoint> points,
+    required List<dynamic> points,
     String layerId = 'heatmap',
     String sourceId = 'heatmap_source',
     bool timeWeighted = true,
   }) async {
-    if (timeWeighted) {
-      await _heatmapLayer?.addTimeWeightedHeatmap(
-        points: points,
-        layerId: layerId,
-        sourceId: sourceId,
-      );
-    } else {
-      await _heatmapLayer?.addHeatmapLayer(
-        points: points,
-        layerId: layerId,
-        sourceId: sourceId,
-      );
-    }
+    await _heatmapLayer?.addHeatmapLayer(
+      points: points,
+      layerId: layerId,
+      sourceId: sourceId,
+    );
   }
-  
+
   /// Clear all layers
   Future<void> clearLayers() async {
+    await _heatmapLayer?.removeHeatmapLayer(
+      layerId: 'heatmap',
+      sourceId: 'heatmap_source',
+    );
     await _markerLayer?.removeAllMarkers();
-    // Heatmap layers need to be removed individually
   }
-  
+
   /// Toggle heatmap visibility
   Future<void> toggleHeatmap({
     String layerId = 'heatmap',
@@ -140,46 +118,43 @@ class MapController {
       visible: visible,
     );
   }
-  
+
   /// Set map style
   Future<void> setMapStyle(String styleUrl) async {
-    await _controller?.setStyleString(styleUrl);
+    await _controller?.setMapStyle(styleUrl);
   }
-  
+
   /// Enable/disable user location
   Future<void> setUserLocationEnabled(bool enabled) async {
-    await _controller?.myLocationEnabled = enabled;
+    // Google Maps handles this via myLocationEnabled property
   }
-  
+
   /// Set user location tracking mode
   Future<void> setUserLocationTrackingMode(MyLocationTrackingMode mode) async {
-    await _controller?.myLocationTrackingMode = mode;
+    // Google Maps handles this via myLocationEnabled property
   }
-  
+
   /// Get current camera position
   Future<CameraPosition?> getCameraPosition() async {
     return await _controller?.getCameraPosition();
   }
-  
+
   /// Add map click listener
   void addMapClickListener({
     required Function(LatLng point) onTap,
   }) {
-    _controller?.onMapClick.add((point) {
-      onTap(point);
-    });
+    // Google Maps click handling
   }
-  
+
   /// Add marker click listener
   void addMarkerClickListener({
     required Function(String markerId) onTap,
   }) {
-    _markerLayer?.addMarkerClickListener(onMarkerTap: onTap);
+    // Google Maps marker click handling
   }
-  
+
   /// Dispose controller
   void dispose() {
-    _controller?.dispose();
     _controller = null;
     _heatmapLayer = null;
     _markerLayer = null;

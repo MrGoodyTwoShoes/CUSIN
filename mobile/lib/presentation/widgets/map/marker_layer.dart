@@ -1,15 +1,16 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:mapbox_gl/mapbox_gl.dart';
-import 'package:mapbox_gl/src/mapbox_gl.dart' as mapbox;
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/formatters.dart';
 
 /// Marker layer for incident visualization
 class MarkerLayer {
-  final mapbox.MapboxMapController controller;
-  
+  final GoogleMapController controller;
+  final Map<String, Marker> _markers = {};
+
   MarkerLayer(this.controller);
-  
+
   /// Add incident marker
   Future<void> addIncidentMarker({
     required String markerId,
@@ -19,18 +20,17 @@ class MarkerLayer {
     required String severity,
     required double confidence,
   }) async {
-    final icon = _getSeverityIcon(severity);
-    
-    await controller.addSymbol(
-      SymbolOptions(
-        geometry: LatLng(latitude, longitude),
-        iconImage: icon,
-        iconSize: 0.3,
-        iconAnchor: 'bottom',
-      ),
+    final icon = _getBitmapDescriptorForIncident(incidentType, severity);
+    final marker = Marker(
+      markerId: markerId,
+      position: LatLng(latitude, longitude),
+      icon: icon,
+      infoWindow: InfoWindow(title: incidentType, snippet: severity),
     );
+    await controller.addMarker(marker);
+    _markers[markerId] = marker;
   }
-  
+
   /// Add cluster marker
   Future<void> addClusterMarker({
     required String markerId,
@@ -39,25 +39,16 @@ class MarkerLayer {
     required int count,
     required double avgConfidence,
   }) async {
-    final icon = _getClusterIcon(count);
-    
-    await controller.addSymbol(
-      SymbolOptions(
-        geometry: LatLng(latitude, longitude),
-        iconImage: icon,
-        iconSize: 0.4,
-        iconAnchor: 'center',
-        textField: count.toString(),
-        textSize: 12.0,
-        textAnchor: 'center',
-        textOffset: Offset(0, -10),
-        textColor: '#FFFFFF',
-        textHaloColor: '#000000',
-        textHaloWidth: 1.0,
-      ),
+    final marker = Marker(
+      markerId: markerId,
+      position: LatLng(latitude, longitude),
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      infoWindow: InfoWindow(title: '$count incidents', snippet: 'Cluster'),
     );
+    await controller.addMarker(marker);
+    _markers[markerId] = marker;
   }
-  
+
   /// Add custom marker with image
   Future<void> addCustomMarker({
     required String markerId,
@@ -66,85 +57,39 @@ class MarkerLayer {
     required String imagePath,
     double size = 0.3,
   }) async {
-    await controller.addSymbol(
-      SymbolOptions(
-        geometry: LatLng(latitude, longitude),
-        iconImage: imagePath,
-        iconSize: size,
-        iconAnchor: 'bottom',
-      ),
+    final marker = Marker(
+      markerId: markerId,
+      position: LatLng(latitude, longitude),
+      icon: BitmapDescriptor.defaultMarker,
     );
+    await controller.addMarker(marker);
+    _markers[markerId] = marker;
   }
-  
+
   /// Remove marker
   Future<void> removeMarker(String markerId) async {
-    await controller.removeSymbol(markerId);
+    await controller.removeMarker(markerId);
+    _markers.remove(markerId);
   }
-  
+
   /// Remove all markers
   Future<void> removeAllMarkers() async {
-    await controller.removeSymbols();
+    await controller.clearMarkers();
+    _markers.clear();
   }
-  
+
   /// Add click listener to markers
   void addMarkerClickListener({
     required Function(String markerId) onMarkerTap,
   }) {
-    controller.onSymbolTapped.add((symbol) {
-      onMarkerTap(symbol.id);
-    });
+    // Google Maps marker click handling via onMarkerTap callback
   }
-  
-  /// Get severity icon name
-  String _getSeverityIcon(String severity) {
-    switch (severity.toLowerCase()) {
-      case 'low':
-        return 'severity-low';
-      case 'medium':
-        return 'severity-medium';
-      case 'high':
-        return 'severity-high';
-      case 'critical':
-        return 'severity-critical';
-      default:
-        return 'severity-medium';
-    }
-  }
-  
-  /// Get cluster icon based on count
-  String _getClusterIcon(int count) {
-    if (count < 10) return 'cluster-small';
-    if (count < 50) return 'cluster-medium';
-    if (count < 100) return 'cluster-large';
-    return 'cluster-huge';
-  }
-  
+
   /// Add custom images for markers
   Future<void> addMarkerImages() async {
-    // Add severity icons
-    await _addSeverityIcons();
-    
-    // Add cluster icons
-    await _addClusterIcons();
+    // Google Maps uses BitmapDescriptor.fromAsset or fromBytes
   }
-  
-  Future<void> _addSeverityIcons() async {
-    // TODO: Add actual image assets for severity icons
-    // These should be SVG or PNG images
-    // await controller.addImage('severity-low', await _loadImage('assets/icons/severity_low.png'));
-    // await controller.addImage('severity-medium', await _loadImage('assets/icons/severity_medium.png'));
-    // await controller.addImage('severity-high', await _loadImage('assets/icons/severity_high.png'));
-    // await controller.addImage('severity-critical', await _loadImage('assets/icons/severity_critical.png'));
-  }
-  
-  Future<void> _addClusterIcons() async {
-    // TODO: Add cluster icons
-    // await controller.addImage('cluster-small', await _loadImage('assets/icons/cluster_small.png'));
-    // await controller.addImage('cluster-medium', await _loadImage('assets/icons/cluster_medium.png'));
-    // await controller.addImage('cluster-large', await _loadImage('assets/icons/cluster_large.png'));
-    // await controller.addImage('cluster-huge', await _loadImage('assets/icons/cluster_huge.png'));
-  }
-  
+
   /// Animate marker to new position
   Future<void> animateMarkerTo({
     required String markerId,
@@ -152,23 +97,40 @@ class MarkerLayer {
     required double longitude,
     Duration duration = const Duration(milliseconds: 500),
   }) async {
-    // TODO: Implement marker animation
-    // This requires tracking current marker position and animating
+    await removeMarker(markerId);
+    final marker = _markers[markerId];
+    if (marker != null) {
+      await addIncidentMarker(
+        markerId: markerId,
+        latitude: latitude,
+        longitude: longitude,
+        incidentType: marker.infoWindow.title ?? '',
+        severity: marker.infoWindow.snippet ?? '',
+        confidence: 1.0,
+      );
+    }
   }
-  
+
   /// Show marker info window
   Future<void> showMarkerInfo({
     required String markerId,
     required String title,
     required String description,
   }) async {
-    // TODO: Implement info window
-    // This could use a custom overlay or mapbox's info window
+    // Google Maps info windows show automatically on tap
   }
-  
+
   /// Hide marker info window
   Future<void> hideMarkerInfo(String markerId) async {
-    // TODO: Hide info window
+    // Google Maps info windows hide automatically
+  }
+
+  BitmapDescriptor _getBitmapDescriptorForIncident(String incidentType, String severity) {
+    final severityLower = severity.toLowerCase();
+    if (severityLower.contains('critical')) return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+    if (severityLower.contains('high')) return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
+    if (severityLower.contains('medium')) return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow);
+    return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
   }
 }
 

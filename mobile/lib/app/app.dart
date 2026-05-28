@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'core/constants/storage_constants.dart';
+import '../../core/constants/storage_constants.dart';
 import 'router.dart';
-import 'services/location_service.dart';
-import 'services/notification_service.dart';
-import 'services/websocket_service.dart';
+import '../../services/location_service.dart';
+import '../../services/notification_service.dart';
+import '../../services/websocket_service.dart';
+import '../presentation/providers/providers.dart';
 import 'theme/app_theme.dart';
 
 class CUSINApp extends ConsumerStatefulWidget {
@@ -64,8 +65,3 @@ class _CUSINAppState extends ConsumerState<CUSINApp> {
     );
   }
 }
-
-// Theme mode provider
-final themeModeProvider = StateProvider<ThemeMode>((ref) {
-  return ThemeMode.system;
-});

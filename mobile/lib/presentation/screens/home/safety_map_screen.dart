@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mapbox_gl/mapbox_gl.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../services/location_service.dart';
 import '../../widgets/map/map_controller.dart';
+import '../../widgets/map/heatmap_layer.dart';
 
 /// Safety map screen with Mapbox
 class SafetyMapScreen extends ConsumerStatefulWidget {
@@ -14,36 +15,36 @@ class SafetyMapScreen extends ConsumerStatefulWidget {
 }
 
 class _SafetyMapScreenState extends ConsumerState<SafetyMapScreen> {
-  MapboxMapController? mapController;
+  GoogleMapController? mapController;
   MapController? _mapController;
   bool _isLoading = true;
   bool _showHeatmap = true;
   bool _showMarkers = true;
-  
+
   // Nairobi center
   static const double _initialLat = -1.2921;
   static const double _initialLng = 36.8219;
-  
+
   @override
   void initState() {
     super.initState();
     _initializeMap();
   }
-  
+
   Future<void> _initializeMap() async {
     // Request location permission
     await ref.read(locationServiceProvider.notifier).requestPermission();
-    
+
     setState(() => _isLoading = false);
   }
-  
-  void _onMapCreated(MapboxMapController controller) {
+
+  void _onMapCreated(GoogleMapController controller) {
     setState(() {
       mapController = controller;
       _mapController = ref.read(mapControllerProvider);
       _mapController?.initialize(controller);
     });
-    
+
     // Load map data
     _loadMapData();
   }
@@ -212,17 +213,15 @@ class _SafetyMapScreenState extends ConsumerState<SafetyMapScreen> {
           ),
         ],
       ),
-      body: MapboxMap(
-        accessToken: AppConstants.mapboxAccessToken,
+      body: GoogleMap(
         initialCameraPosition: const CameraPosition(
           target: LatLng(_initialLat, _initialLng),
           zoom: AppConstants.defaultMapZoom,
         ),
         onMapCreated: _onMapCreated,
-        styleString: MapboxStyles.MAPBOX_STREETS,
         myLocationEnabled: true,
-        myLocationTrackingMode: MyLocationTrackingMode.None,
-        minMaxZoomPreference: const RangeValues(
+        myLocationButtonEnabled: true,
+        minMaxZoomPreference: const MinMaxZoomPreference(
           AppConstants.minMapZoom,
           AppConstants.maxMapZoom,
         ),

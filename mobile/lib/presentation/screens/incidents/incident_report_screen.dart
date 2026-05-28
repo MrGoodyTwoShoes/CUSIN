@@ -274,7 +274,7 @@ class _IncidentReportScreenState extends ConsumerState<IncidentReportScreen> {
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(8),
                                     child: Image.file(
-                                      _evidenceImages[index].path as Object,
+                                      _evidenceImages[index],
                                       width: 80,
                                       height: 80,
                                       fit: BoxFit.cover,

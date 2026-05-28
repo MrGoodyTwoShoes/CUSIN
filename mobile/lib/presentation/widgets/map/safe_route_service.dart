@@ -1,13 +1,22 @@
-import 'package:mapbox_gl/mapbox_gl.dart';
-import 'package:mapbox_gl/src/mapbox_gl.dart' as mapbox;
+import 'dart:convert';
+import 'dart:math' as math;
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/constants/app_constants.dart';
 
-/// Safe route service using Mapbox Directions API
+/// Safe route service using Google Maps Directions API
 class SafeRouteService {
-  final String mapboxAccessToken;
-  
-  SafeRouteService({required this.mapboxAccessToken});
-  
+  final String googleMapsApiKey;
+  GoogleMapController? _mapController;
+  final Dio _dio = Dio();
+
+  SafeRouteService({required this.googleMapsApiKey});
+
+  void setMapController(GoogleMapController controller) {
+    _mapController = controller;
+  }
+
   /// Get safe route between two points
   Future<SafeRoute> getSafeRoute({
     required double startLat,
@@ -17,22 +26,147 @@ class SafeRouteService {
     bool avoidHighRiskAreas = true,
     String profile = 'walking',
   }) async {
-    // TODO: Implement Mapbox Directions API call
-    // This would call Mapbox Directions API with custom parameters
-    // to avoid high-risk areas based on heatmap data
-    
-    // Placeholder implementation
+    try {
+      final response = await _dio.get(
+        'https://maps.googleapis.com/maps/api/directions/json',
+        queryParameters: {
+          'origin': '$startLat,$startLng',
+          'destination': '$endLat,$endLng',
+          'mode': profile,
+          'key': googleMapsApiKey,
+          'alternatives': 'true',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data['status'] == 'OK' && data['routes'].isNotEmpty) {
+          final route = data['routes'][0];
+          final legs = route['legs'][0];
+          final distance = legs['distance']['value'] as int;
+          final duration = Duration(seconds: legs['duration']['value'] as int);
+          final polyline = route['overview_polyline']['points'] as String;
+          final waypoints = _decodePolyline(polyline);
+
+          // Calculate safety score based on route characteristics
+          final safetyScore = _calculateSafetyScore(distance, duration);
+
+          return SafeRoute(
+            startLat: startLat,
+            startLng: startLng,
+            endLat: endLat,
+            endLng: endLng,
+            distance: distance,
+            duration: duration,
+            waypoints: waypoints,
+            safetyScore: safetyScore,
+            alternativeRoutes: [],
+          );
+        }
+      }
+    } catch (e) {
+      print('Error getting directions: $e');
+    }
+
+    // Fallback to straight line
     return SafeRoute(
       startLat: startLat,
       startLng: startLng,
       endLat: endLat,
       endLng: endLng,
-      distance: 0,
+      distance: _haversineDistance(startLat, startLng, endLat, endLng).toInt(),
       duration: const Duration(minutes: 0),
-      waypoints: [],
-      safetyScore: 0.8,
+      waypoints: [
+        LatLng(startLat, startLng),
+        LatLng(endLat, endLng),
+      ],
+      safetyScore: 0.5,
       alternativeRoutes: [],
     );
+  }
+
+  /// Draw route on map
+  Future<void> drawRoute(SafeRoute route) async {
+    if (_mapController == null) return;
+
+    final polyline = Polyline(
+      polylineId: PolylineId('safe_route'),
+      points: route.waypoints,
+      color: Colors.blue,
+      width: 5,
+      endCap: Cap.roundCap,
+      startCap: Cap.roundCap,
+      jointType: JointType.round,
+    );
+
+    await _mapController!.addPolyline(polyline);
+  }
+
+  /// Clear route from map
+  Future<void> clearRoute() async {
+    if (_mapController == null) return;
+    await _mapController!.removePolyline(const PolylineId('safe_route'));
+  }
+
+  /// Calculate safety score
+  double _calculateSafetyScore(int distance, Duration duration) {
+    // Simple heuristic: longer routes might be safer if they avoid high-risk areas
+    // This would be enhanced with actual incident data
+    final baseScore = 0.7;
+    final distanceFactor = math.min(distance / 10000, 0.2); // Up to 0.2 bonus for longer routes
+    return math.min(baseScore + distanceFactor, 1.0);
+  }
+
+  /// Haversine distance calculation
+  double _haversineDistance(double lat1, double lng1, double lat2, double lng2) {
+    const earthRadius = 6371000; // meters
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLng = (lng2 - lng1) * math.pi / 180;
+    final a = math.pow(math.sin(dLat / 2), 2) +
+        math.cos(lat1 * math.pi / 180) * math.cos(lat2 * math.pi / 180) *
+        math.pow(math.sin(dLng / 2), 2);
+    final c = 2 * math.asin(math.sqrt(a));
+    return earthRadius * c;
+  }
+
+  /// Decode Google Maps polyline
+  List<LatLng> _decodePolyline(String encoded) {
+    final points = <LatLng>[];
+    int index = 0;
+    int len = encoded.length;
+    int lat = 0;
+    int lng = 0;
+
+    while (index < len) {
+      int b;
+      int shift = 0;
+      int result = 0;
+
+      do {
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 0x1F) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+
+      int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lat += dlat;
+
+      shift = 0;
+      result = 0;
+
+      do {
+        b = encoded.codeUnitAt(index++) - 63;
+        result |= (b & 0x1F) << shift;
+        shift += 5;
+      } while (b >= 0x20);
+
+      int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
+      lng += dlng;
+
+      points.add(LatLng(lat / 1E5, lng / 1E5));
+    }
+
+    return points;
   }
   
   /// Get multiple route options with safety scores
@@ -97,11 +231,11 @@ class SafeRouteService {
     final dLat = _toRadians(lat2 - lat1);
     final dLng = _toRadians(lng2 - lng1);
     
-    final a = (dLat / 2).sin() * (dLat / 2).sin() +
-        lat1.toRadians().cos() * lat2.toRadians().cos() *
-        (dLng / 2).sin() * (dLng / 2).sin();
+    final a = math.pow(math.sin(dLat / 2), 2) +
+        math.cos(lat1 * math.pi / 180) * math.cos(lat2 * math.pi / 180) *
+        math.pow(math.sin(dLng / 2), 2);
     
-    final c = 2 * a.sqrt().asin();
+    final c = 2 * math.asin(math.sqrt(a));
     
     return earthRadius * c;
   }
@@ -166,5 +300,3 @@ class Waypoint {
     this.instruction,
   });
 }
-
-import 'package:flutter/material.dart';

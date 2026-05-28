@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:mapbox_gl/mapbox_gl.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../services/api_service.dart';
 import '../services/location_service.dart';
+import '../core/constants/app_constants.dart';
 
 class HeatmapScreen extends StatefulWidget {
   const HeatmapScreen({super.key});
@@ -12,8 +13,8 @@ class HeatmapScreen extends StatefulWidget {
 
 class _HeatmapScreenState extends State<HeatmapScreen> {
   final _apiService = APIService();
-  
-  MapboxMapController? mapController;
+
+  GoogleMapController? mapController;
   bool _isLoading = true;
   List<dynamic> _heatmapData = [];
   List<dynamic> _incidents = [];
@@ -32,7 +33,7 @@ class _HeatmapScreenState extends State<HeatmapScreen> {
     try {
       // Get heatmap data
       final heatmap = await _apiService.getHeatmap();
-      
+
       // Get nearby incidents
       final position = await LocationService.getCurrentLocation();
       final incidents = await _apiService.getNearbyIncidents(
@@ -55,7 +56,7 @@ class _HeatmapScreenState extends State<HeatmapScreen> {
     }
   }
 
-  void _onMapCreated(MapboxMapController controller) {
+  void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
   }
 
@@ -70,16 +71,14 @@ class _HeatmapScreenState extends State<HeatmapScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Stack(
               children: [
-                MapboxMap(
-                  accessToken: 'YOUR_MAPBOX_ACCESS_TOKEN', // Replace with actual token
+                GoogleMap(
                   initialCameraPosition: const CameraPosition(
                     target: LatLng(_initialLat, _initialLng),
                     zoom: 12.0,
                   ),
                   onMapCreated: _onMapCreated,
-                  styleString: MapboxStyles.MAPBOX_STREETS,
                   myLocationEnabled: true,
-                  myLocationTrackingMode: MyLocationTrackingMode.None,
+                  myLocationButtonEnabled: true,
                 ),
                 Positioned(
                   top: 16,

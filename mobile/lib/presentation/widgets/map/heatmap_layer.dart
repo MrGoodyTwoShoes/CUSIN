@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:mapbox_gl/mapbox_gl.dart';
-import 'package:mapbox_gl/src/mapbox_gl.dart' as mapbox;
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/constants/app_constants.dart';
 
 /// Heatmap layer for safety visualization
 class HeatmapLayer {
-  final mapbox.MapboxMapController controller;
-  
+  final GoogleMapController controller;
+  final Map<String, Set<Circle>> _heatmapCircles = {};
+  final Map<String, bool> _visibility = {};
+
   HeatmapLayer(this.controller);
-  
+
   /// Add heatmap layer to map
   Future<void> addHeatmapLayer({
     required List<HeatmapPoint> points,
@@ -18,175 +19,177 @@ class HeatmapLayer {
     double intensity = 0.5,
     double opacity = 0.6,
   }) async {
-    // Convert points to GeoJSON
-    final geojson = _pointsToGeoJson(points);
-    
-    // Add source
-    await controller.addSource(
-      sourceId,
-      mapbox.GeojsonSourceProperties(data: geojson),
-    );
-    
-    // Add heatmap layer
-    await controller.addHeatmapLayer(
-      layerId,
-      sourceId,
-      properties: HeatmapLayerProperties(
-        heatmapRadius: radius,
-        heatmapIntensity: intensity,
-        heatmapOpacity: opacity,
-        heatmapColor: _getHeatmapColorExpression(),
-      ),
-      belowLayerId: 'road-label',
-    );
+    final circles = <Circle>{};
+
+    for (final point in points) {
+      final color = _getColorForIntensity(point.intensity, opacity);
+      final circle = Circle(
+        circleId: CircleId('${layerId}_${point.latitude}_${point.longitude}'),
+        center: LatLng(point.latitude, point.longitude),
+        radius: radius * point.intensity * 100, // Scale radius by intensity
+        fillColor: color,
+        strokeColor: Colors.transparent,
+        strokeWidth: 0,
+      );
+      circles.add(circle);
+    }
+
+    await controller.addCircles(circles);
+    _heatmapCircles[layerId] = circles;
+    _visibility[layerId] = true;
   }
-  
+
   /// Update heatmap with new data
   Future<void> updateHeatmap({
     required List<HeatmapPoint> points,
     required String sourceId,
   }) async {
-    final geojson = _pointsToGeoJson(points);
-    await controller.setSource(sourceId, mapbox.GeojsonSourceProperties(data: geojson));
+    // Remove existing and re-add
+    for (final layerId in _heatmapCircles.keys) {
+      await removeHeatmapLayer(layerId: layerId, sourceId: sourceId);
+    }
+    await addHeatmapLayer(
+      points: points,
+      layerId: sourceId,
+      sourceId: sourceId,
+    );
   }
-  
+
   /// Remove heatmap layer
   Future<void> removeHeatmapLayer({
     required String layerId,
     required String sourceId,
   }) async {
-    await controller.removeLayer(layerId);
-    await controller.removeSource(sourceId);
+    final circles = _heatmapCircles[layerId];
+    if (circles != null) {
+      for (final circle in circles) {
+        await controller.removeCircle(circle.circleId);
+      }
+      _heatmapCircles.remove(layerId);
+      _visibility.remove(layerId);
+    }
   }
-  
+
   /// Toggle heatmap visibility
   Future<void> toggleHeatmapVisibility({
     required String layerId,
     required bool visible,
   }) async {
-    await controller.setLayerVisibility(layerId, visible);
-  }
-  
-  /// Convert points to GeoJSON format
-  String _pointsToGeoJson(List<HeatmapPoint> points) {
-    final features = points.map((point) {
-      return {
-        'type': 'Feature',
-        'geometry': {
-          'type': 'Point',
-          'coordinates': [point.longitude, point.latitude],
-        },
-        'properties': {
-          'intensity': point.intensity,
-          'confidence': point.confidence,
-        },
-      };
-    }).toList();
-    
-    return '''
-    {
-      "type": "FeatureCollection",
-      "features": ${features.toString()}
+    final circles = _heatmapCircles[layerId];
+    if (circles != null) {
+      final opacity = visible ? 0.6 : 0.0;
+      for (final circle in circles) {
+        final newColor = _updateColorOpacity(circle.fillColor, opacity);
+        await controller.updateCircle(circle.circleId, CircleUpdates(fillColor: newColor));
+      }
+      _visibility[layerId] = visible;
     }
-    ''';
   }
-  
-  /// Get heatmap color expression based on intensity
-  List<dynamic> _getHeatmapColorExpression() {
-    return [
-      'interpolate',
-      ['linear'],
-      ['heatmap-density'],
-      0.0, 'rgba(0, 255, 0, 0)', // Green - low risk
-      0.3, 'rgba(255, 255, 0, 0.5)', // Yellow - medium-low risk
-      0.5, 'rgba(255, 165, 0, 0.7)', // Orange - medium risk
-      0.7, 'rgba(255, 69, 0, 0.8)', // Red-orange - high risk
-      1.0, 'rgba(255, 0, 0, 1)', // Red - critical risk
-    ];
+
+  Color _getColorForIntensity(double intensity, double opacity) {
+    // Color gradient from green (low) to red (high)
+    if (intensity < 0.3) {
+      return Colors.green.withOpacity(opacity * intensity);
+    } else if (intensity < 0.5) {
+      return Colors.yellow.withOpacity(opacity * intensity);
+    } else if (intensity < 0.7) {
+      return Colors.orange.withOpacity(opacity * intensity);
+    } else {
+      return Colors.red.withOpacity(opacity * intensity);
+    }
   }
-  
+
+  Color _updateColorOpacity(Color color, double opacity) {
+    return color.withOpacity(opacity);
+  }
+
   /// Add confidence-based weighting
   Future<void> addWeightedHeatmap({
     required List<HeatmapPoint> points,
     required String layerId,
     required String sourceId,
   }) async {
-    // Weight points by confidence score
-    final weightedPoints = points.map((point) {
-      final weight = point.confidence * point.intensity;
-      return HeatmapPoint(
-        latitude: point.latitude,
-        longitude: point.longitude,
-        intensity: weight,
-        confidence: point.confidence,
-      );
-    }).toList();
-    
+    // Weight points by confidence
+    final weightedPoints = points.map((p) => HeatmapPoint(
+          latitude: p.latitude,
+          longitude: p.longitude,
+          intensity: p.intensity * p.confidence,
+          confidence: p.confidence,
+          timestamp: p.timestamp,
+        ));
+
     await addHeatmapLayer(
-      points: weightedPoints,
+      points: weightedPoints.toList(),
       layerId: layerId,
       sourceId: sourceId,
     );
   }
-  
-  /// Add time-based heatmap (recent incidents weighted higher)
+
+  /// Add time-based heatmap
   Future<void> addTimeWeightedHeatmap({
     required List<HeatmapPoint> points,
     required String layerId,
     required String sourceId,
     DateTime? referenceTime,
   }) async {
-    final now = referenceTime ?? DateTime.now();
-    final timeWeightedPoints = points.map((point) {
-      final hoursSinceIncident = now.difference(point.timestamp).inHours;
-      final timeWeight = _calculateTimeWeight(hoursSinceIncident);
-      final weightedIntensity = point.intensity * timeWeight * point.confidence;
-      
+    final refTime = referenceTime ?? DateTime.now();
+    final timeWeightedPoints = points.map((p) {
+      final hoursSince = refTime.difference(p.timestamp).inHours;
+      final timeWeight = 1.0 / (1.0 + hoursSince / 24.0); // Decay over days
       return HeatmapPoint(
-        latitude: point.latitude,
-        longitude: point.longitude,
-        intensity: weightedIntensity,
-        confidence: point.confidence,
-        timestamp: point.timestamp,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        intensity: p.intensity * timeWeight,
+        confidence: p.confidence,
+        timestamp: p.timestamp,
       );
-    }).toList();
-    
+    });
+
     await addHeatmapLayer(
-      points: timeWeightedPoints,
+      points: timeWeightedPoints.toList(),
       layerId: layerId,
       sourceId: sourceId,
     );
   }
-  
-  /// Calculate time weight (recent incidents weighted higher)
-  double _calculateTimeWeight(int hoursSince) {
-    if (hoursSince < 1) return 1.0;
-    if (hoursSince < 6) return 0.8;
-    if (hoursSince < 12) return 0.6;
-    if (hoursSince < 24) return 0.4;
-    if (hoursSince < 48) return 0.2;
-    return 0.1;
-  }
-  
-  /// Add multiple heatmap layers for different incident types
+
+  /// Add multiple heatmap layers
   Future<void> addMultiLayerHeatmap({
     required Map<String, List<HeatmapPoint>> incidentTypePoints,
     required Map<String, Color> typeColors,
   }) async {
+    int index = 0;
     for (final entry in incidentTypePoints.entries) {
-      final type = entry.key;
-      final points = entry.value;
-      final color = typeColors[type] ?? Colors.blue;
-      
+      final layerId = 'heatmap_${entry.key}_$index';
+      final sourceId = 'heatmap_source_${entry.key}_$index';
+      final color = typeColors[entry.key] ?? Colors.red;
+
       await addHeatmapLayer(
-        points: points,
-        layerId: 'heatmap_$type',
-        sourceId: 'heatmap_source_$type',
-        radius: 20.0,
-        intensity: 0.4,
-        opacity: 0.5,
+        points: entry.value,
+        layerId: layerId,
+        sourceId: sourceId,
       );
+      index++;
     }
+  }
+
+  /// Convert points to GeoJSON
+  String _pointsToGeojson(List<HeatmapPoint> points) {
+    final features = points.map((p) => {
+          'type': 'Feature',
+          'geometry': {
+            'type': 'Point',
+            'coordinates': [p.longitude, p.latitude],
+          },
+          'properties': {
+            'intensity': p.intensity,
+            'confidence': p.confidence,
+          },
+        });
+
+    return jsonEncode({
+      'type': 'FeatureCollection',
+      'features': features.toList(),
+    });
   }
 }
 
@@ -207,7 +210,7 @@ class HeatmapPoint {
   }) : timestamp = timestamp ?? DateTime.now();
 }
 
-/// Heatmap layer properties
+/// Heatmap layer properties (stub)
 class HeatmapLayerProperties {
   final double heatmapRadius;
   final double heatmapIntensity;
@@ -220,13 +223,4 @@ class HeatmapLayerProperties {
     this.heatmapOpacity = 0.6,
     this.heatmapColor,
   });
-  
-  mapbox.HeatmapLayerProperties toMapboxProperties() {
-    return mapbox.HeatmapLayerProperties(
-      heatmapRadius: heatmapRadius,
-      heatmapIntensity: heatmapIntensity,
-      heatmapOpacity: heatmapOpacity,
-      heatmapColor: heatmapColor,
-    );
-  }
 }

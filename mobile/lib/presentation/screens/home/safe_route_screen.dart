@@ -115,7 +115,6 @@ class _SafeRouteScreenState extends ConsumerState<SafeRouteScreen> {
                       prefixIcon: Icon(Icons.search),
                       border: OutlineInputBorder(),
                     ),
-                    textScaleFactor: accessibilitySettings.textScaleFactor,
                   ),
                   const SizedBox(height: 12),
                   CUSINButton(
