@@ -28,30 +28,28 @@ jobs:
         cache: true
 
     - name: Clear pub cache
-      working-directory: ./mobile
+      working-directory: ./mobile-minimal
       run: flutter clean && rm -f pubspec.lock
 
     - name: Install dependencies
-      working-directory: ./mobile
+      working-directory: ./mobile-minimal
       run: flutter pub get
 
     - name: Create assets directories
-      working-directory: ./mobile
+      working-directory: ./mobile-minimal
       run: |
         mkdir -p assets/images
         mkdir -p assets/icons
         mkdir -p assets/fonts
 
     - name: Build APK
-      working-directory: ./mobile
-      env:
-        GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+      working-directory: ./mobile-minimal
       run: flutter build apk --release
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
-        name: cusin-apk
-        path: mobile/build/app/outputs/flutter-apk/app-release.apk
+        name: cusin-minimal-apk
+        path: mobile-minimal/build/app/outputs/flutter-apk/app-release.apk
         retention-days: 30
       if: success()
