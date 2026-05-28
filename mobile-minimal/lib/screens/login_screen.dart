@@ -30,22 +30,23 @@ class _LoginScreenState extends State<LoginScreen> {
         body: jsonEncode({'phone': _phoneController.text}),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success']) {
-          setState(() {
-            _isLoading = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Registration successful! Enter verification code.')),
-          );
-        }
-      } else {
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300 && data['success'] == true) {
         setState(() {
-          _errorMessage = 'Registration failed';
           _isLoading = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registration successful! Enter verification code.')),
+        );
+        return;
       }
+
+      final message = data['error']?['message'] ?? 'Registration failed';
+      setState(() {
+        _errorMessage = message;
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
         _errorMessage = 'Network error: $e';
