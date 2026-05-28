@@ -213,18 +213,24 @@ class _SafetyMapScreenState extends ConsumerState<SafetyMapScreen> {
           ),
         ],
       ),
-      body: GoogleMap(
-        initialCameraPosition: const CameraPosition(
-          target: LatLng(_initialLat, _initialLng),
-          zoom: AppConstants.defaultMapZoom,
-        ),
-        onMapCreated: _onMapCreated,
-        myLocationEnabled: true,
-        myLocationButtonEnabled: true,
-        minMaxZoomPreference: const MinMaxZoomPreference(
-          AppConstants.minMapZoom,
-          AppConstants.maxMapZoom,
-        ),
+      body: Consumer(
+        builder: (context, ref, child) {
+          final mapController = ref.watch(mapControllerProvider);
+          return GoogleMap(
+            initialCameraPosition: const CameraPosition(
+              target: LatLng(_initialLat, _initialLng),
+              zoom: AppConstants.defaultMapZoom,
+            ),
+            onMapCreated: _onMapCreated,
+            myLocationEnabled: true,
+            myLocationButtonEnabled: true,
+            minMaxZoomPreference: const MinMaxZoomPreference(
+              AppConstants.minMapZoom,
+              AppConstants.maxMapZoom,
+            ),
+            markers: mapController?.markerLayer?.markers ?? {},
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showLegend,

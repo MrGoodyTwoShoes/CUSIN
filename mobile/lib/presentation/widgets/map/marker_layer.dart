@@ -11,6 +11,9 @@ class MarkerLayer {
 
   MarkerLayer(this.controller);
 
+  /// Get all markers for the map
+  Set<Marker> get markers => _markers.values.toSet();
+
   /// Add incident marker
   Future<void> addIncidentMarker({
     required String markerId,
@@ -22,12 +25,11 @@ class MarkerLayer {
   }) async {
     final icon = _getBitmapDescriptorForIncident(incidentType, severity);
     final marker = Marker(
-      markerId: markerId,
+      markerId: MarkerId(markerId),
       position: LatLng(latitude, longitude),
       icon: icon,
       infoWindow: InfoWindow(title: incidentType, snippet: severity),
     );
-    await controller.addMarker(marker);
     _markers[markerId] = marker;
   }
 
@@ -40,12 +42,11 @@ class MarkerLayer {
     required double avgConfidence,
   }) async {
     final marker = Marker(
-      markerId: markerId,
+      markerId: MarkerId(markerId),
       position: LatLng(latitude, longitude),
       icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
       infoWindow: InfoWindow(title: '$count incidents', snippet: 'Cluster'),
     );
-    await controller.addMarker(marker);
     _markers[markerId] = marker;
   }
 
@@ -58,23 +59,20 @@ class MarkerLayer {
     double size = 0.3,
   }) async {
     final marker = Marker(
-      markerId: markerId,
+      markerId: MarkerId(markerId),
       position: LatLng(latitude, longitude),
       icon: BitmapDescriptor.defaultMarker,
     );
-    await controller.addMarker(marker);
     _markers[markerId] = marker;
   }
 
   /// Remove marker
   Future<void> removeMarker(String markerId) async {
-    await controller.removeMarker(markerId);
     _markers.remove(markerId);
   }
 
   /// Remove all markers
   Future<void> removeAllMarkers() async {
-    await controller.clearMarkers();
     _markers.clear();
   }
 

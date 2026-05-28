@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 extension StringExtensions on String {
@@ -48,11 +49,9 @@ extension IntExtensions on int {
 extension DoubleExtensions on double {
   /// Round to specified decimal places
   double roundTo(int decimals) {
-    final factor = pow(10, decimals);
+    final factor = math.pow(10, decimals);
     return (this * factor).round() / factor;
   }
-  
-  num pow(num x, num exponent) => num.parse(x.toString()).pow(exponent);
 }
 
 extension DateTimeExtensions on DateTime {

@@ -79,7 +79,7 @@ class ApiInterceptor extends Interceptor {
         return NetworkException('An unexpected error occurred. Please try again.');
       
       default:
-        return UnknownFailure('An unknown error occurred.');
+        return ServerException('An unknown error occurred.');
     }
   }
   

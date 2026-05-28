@@ -71,14 +71,16 @@ class _HeatmapScreenState extends State<HeatmapScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Stack(
               children: [
-                GoogleMap(
+                MapboxMap(
+                  accessToken: 'YOUR_MAPBOX_ACCESS_TOKEN', // Replace with actual token
                   initialCameraPosition: const CameraPosition(
                     target: LatLng(_initialLat, _initialLng),
                     zoom: 12.0,
                   ),
                   onMapCreated: _onMapCreated,
+                  styleString: MapboxStyles.MAPBOX_STREETS,
                   myLocationEnabled: true,
-                  myLocationButtonEnabled: true,
+                  myLocationTrackingMode: MyLocationTrackingMode.None,
                 ),
                 Positioned(
                   top: 16,

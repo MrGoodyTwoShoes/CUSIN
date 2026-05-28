@@ -82,7 +82,16 @@ class MapController {
 
   /// Add incident markers
   Future<void> addIncidentMarkers(List<dynamic> markers) async {
-    await _markerLayer?.addIncidentMarkers(markers);
+    for (final marker in markers) {
+      await _markerLayer?.addIncidentMarker(
+        markerId: marker['id']?.toString() ?? '',
+        latitude: marker['latitude'] ?? 0.0,
+        longitude: marker['longitude'] ?? 0.0,
+        incidentType: marker['incidentType'] ?? '',
+        severity: marker['severity'] ?? '',
+        confidence: marker['confidence'] ?? 0.0,
+      );
+    }
   }
 
   /// Add heatmap layer
