@@ -4,6 +4,13 @@ import '../../../core/network/dio_client.dart';
 /// Abstract remote datasource interface
 abstract class RemoteDataSource {
   Future<void> init();
+  Future<Response> get(String path, {Map<String, dynamic>? queryParameters});
+  Future<Response> post(String path, {dynamic data});
+  Future<Response> put(String path, {dynamic data});
+  Future<Response> delete(String path);
+  Future<Response> patch(String path, {dynamic data});
+  Future<Response> uploadFile(String path, String filePath, {Map<String, dynamic>? data});
+  Future<Response> uploadFiles(String path, List<String> filePaths, {Map<String, dynamic>? data});
 }
 
 /// Remote datasource implementation using Dio

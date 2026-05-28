@@ -143,7 +143,7 @@ extension BuildContextExtensions on BuildContext {
   bool get isKeyboardVisible => mediaQuery.viewInsets.bottom > 0;
   
   /// Hide keyboard
-  void hideKeyboard {
+  void hideKeyboard() {
     FocusScope.of(this).unfocus();
   }
   
