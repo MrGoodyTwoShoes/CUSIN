@@ -20,8 +20,7 @@ class _HeatmapScreenState extends State<HeatmapScreen> {
   List<dynamic> _incidents = [];
 
   // Nairobi center
-  static const double _initialLat = -1.2921;
-  static const double _initialLng = 36.8219;
+  static const double _initialLat = ;
 
   @override
   void initState() {

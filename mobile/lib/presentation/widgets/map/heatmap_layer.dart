@@ -1,14 +1,17 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/constants/app_constants.dart';
 
 /// Heatmap layer for safety visualization
 class HeatmapLayer {
-  final GoogleMapController controller;
-  final Map<String, Set<Circle>> _heatmapCircles = {};
+  final Set<Circle> _circles = {};
   final Map<String, bool> _visibility = {};
 
-  HeatmapLayer(this.controller);
+  HeatmapLayer();
+
+  /// Get all circles for the map
+  Set<Circle> get circles => _circles;
 
   /// Add heatmap layer to map
   Future<void> addHeatmapLayer({

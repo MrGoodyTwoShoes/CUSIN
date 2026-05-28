@@ -60,7 +60,7 @@ class SafeRouteService {
             startLng: startLng,
             endLat: endLat,
             endLng: endLng,
-            distance: distance,
+            distance: distance.toDouble(),
             duration: duration,
             waypoints: waypoints,
             safetyScore: safetyScore,
@@ -78,7 +78,7 @@ class SafeRouteService {
       startLng: startLng,
       endLat: endLat,
       endLng: endLng,
-      distance: _haversineDistance(startLat, startLng, endLat, endLng).toInt(),
+      distance: _haversineDistance(startLat, startLng, endLat, endLng),
       duration: const Duration(minutes: 0),
       waypoints: [
         LatLng(startLat, startLng),
