@@ -8,13 +8,17 @@ import '../../../core/constants/app_constants.dart';
 /// Safe route service using Google Maps Directions API
 class SafeRouteService {
   final String googleMapsApiKey;
-  GoogleMapController? _mapController;
+  final Set<Polyline> _polylines = {};
   final Dio _dio = Dio();
 
   SafeRouteService({required this.googleMapsApiKey});
 
+  /// Get all polylines for the map
+  Set<Polyline> get polylines => _polylines;
+
   void setMapController(GoogleMapController controller) {
-    _mapController = controller;
+    // GoogleMapController is no longer needed for polyline management
+    // Polylines are managed via the Set<Polyline> getter
   }
 
   /// Get safe route between two points
@@ -87,8 +91,6 @@ class SafeRouteService {
 
   /// Draw route on map
   Future<void> drawRoute(SafeRoute route) async {
-    if (_mapController == null) return;
-
     final polyline = Polyline(
       polylineId: PolylineId('safe_route'),
       points: route.waypoints,
@@ -99,13 +101,12 @@ class SafeRouteService {
       jointType: JointType.round,
     );
 
-    await _mapController!.addPolyline(polyline);
+    _polylines.add(polyline);
   }
 
   /// Clear route from map
   Future<void> clearRoute() async {
-    if (_mapController == null) return;
-    await _mapController!.removePolyline(const PolylineId('safe_route'));
+    _polylines.removeWhere((polyline) => polyline.polylineId.value == 'safe_route');
   }
 
   /// Calculate safety score
@@ -186,18 +187,18 @@ class SafeRouteService {
   
   /// Calculate safety score for a route
   double calculateRouteSafetyScore({
-    required List<Waypoint> waypoints,
+    required List<LatLng> waypoints,
     required List<HeatmapPoint> heatmapData,
   }) {
     if (heatmapData.isEmpty) return 1.0;
-    
+
     double totalRisk = 0;
     int segments = 0;
-    
+
     for (int i = 0; i < waypoints.length - 1; i++) {
       final start = waypoints[i];
       final end = waypoints[i + 1];
-      
+
       // Find heatmap points near this segment
       final nearbyRisks = heatmapData.where((point) {
         final distance = _haversineDistance(
@@ -208,7 +209,7 @@ class SafeRouteService {
         );
         return distance < 100; // 100m radius
       }).toList();
-      
+
       if (nearbyRisks.isNotEmpty) {
         final avgRisk = nearbyRisks
             .map((p) => p.intensity)
@@ -217,29 +218,13 @@ class SafeRouteService {
         segments++;
       }
     }
-    
+
     if (segments == 0) return 1.0;
-    
+
     final avgRisk = totalRisk / segments;
     return (1.0 - avgRisk).clamp(0.0, 1.0);
   }
-  
-  /// Haversine distance calculation
-  double _haversineDistance(double lat1, double lng1, double lat2, double lng2) {
-    const earthRadius = 6371000; // meters
-    
-    final dLat = _toRadians(lat2 - lat1);
-    final dLng = _toRadians(lng2 - lng1);
-    
-    final a = math.pow(math.sin(dLat / 2), 2) +
-        math.cos(lat1 * math.pi / 180) * math.cos(lat2 * math.pi / 180) *
-        math.pow(math.sin(dLng / 2), 2);
-    
-    final c = 2 * math.asin(math.sqrt(a));
-    
-    return earthRadius * c;
-  }
-  
+
   double _toRadians(double degrees) {
     return degrees * (3.14159265359 / 180);
   }
@@ -253,7 +238,7 @@ class SafeRoute {
   final double endLng;
   final double distance; // in meters
   final Duration duration;
-  final List<Waypoint> waypoints;
+  final List<LatLng> waypoints;
   final double safetyScore; // 0.0 to 1.0
   final List<SafeRoute> alternativeRoutes;
   
@@ -293,10 +278,23 @@ class Waypoint {
   final double latitude;
   final double longitude;
   final String? instruction;
-  
+
   Waypoint({
     required this.latitude,
     required this.longitude,
     this.instruction,
+  });
+}
+
+/// Heatmap point for safety scoring
+class HeatmapPoint {
+  final double latitude;
+  final double longitude;
+  final double intensity;
+
+  HeatmapPoint({
+    required this.latitude,
+    required this.longitude,
+    required this.intensity,
   });
 }
